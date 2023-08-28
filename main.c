@@ -38,7 +38,29 @@ void termios_cleanup(void) {
 void process_input(void) {
 	switch(getchar()) {
 		case 'q': playing = false; break;
+
+		case 'w': goto move_up;
+		case 's': goto move_down;
+		case 'd': goto move_right;
+		case 'a': goto move_left;
+
+		case '\033': { // ESC
+			if(getchar() != '[') return;
+			switch(getchar()) {
+				case 'A': goto move_up;
+				case 'B': goto move_down;
+				case 'C': goto move_right;
+				case 'D': goto move_left;
+			}
+		} break;
 	}
+
+	return;
+
+	move_up: if(--cur_y < 0) cur_y = 0; return;
+	move_down: if(++cur_y > 8) cur_y = 8; return;
+	move_right: if(++cur_x > 8) cur_x = 8; return;
+	move_left: if(--cur_x < 0) cur_x = 0; return;
 }
 
 void print_board(void) {
@@ -46,7 +68,12 @@ void print_board(void) {
 	for(int y = 0; y < 9; ++y) {
 		for(int x = 0; x < 9; ++x) {
 			uint8_t c = sudoku[y][x];
-			printf(" %c ", c == 0 ? ' ' : (c + '0'));
+			bool is_cursor = cur_x == x && cur_y == y;
+			printf("%c%c%c",
+				" >"[is_cursor],
+				c == 0 ? ' ' : (c + '0'),
+				" <"[is_cursor]
+			);
 			if(x == 2 || x == 5) printf("|");
 		}
 		printf("\n");
@@ -61,8 +88,8 @@ int main(void) {
 	termios_setup();
 
 	while(playing) {
-		process_input();
 		print_board();
+		process_input();
 	}
 
 	termios_cleanup();
