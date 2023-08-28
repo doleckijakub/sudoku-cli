@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include <stdbool.h>
 
+#define PLAIN_NUMBER_MASK 63
+#define USER_PLACED_MASK 64
+
 uint8_t sudoku[9][9] = {
 	{0, 0, 6, 3, 0, 7, 1, 0, 0},
 	{0, 0, 0, 0, 4, 2, 0, 7, 0},
@@ -36,13 +39,37 @@ void termios_cleanup(void) {
 }
 
 void process_input(void) {
-	switch(getchar()) {
+	char c = getchar();
+	switch(c) {
 		case 'q': playing = false; break;
 
 		case 'w': goto move_up;
 		case 's': goto move_down;
 		case 'd': goto move_right;
 		case 'a': goto move_left;
+
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':	
+		case '9': {
+			if(sudoku[cur_y][cur_x] == 0 || (sudoku[cur_y][cur_x] & USER_PLACED_MASK) != 0) { // cell is empty or number was placed by the user
+				sudoku[cur_y][cur_x] = USER_PLACED_MASK | (c - '0');
+			} else { // user attempts to override the initial board
+				// TODO: prompt the user that they cannot alter that cell
+			}
+		} break;
+
+		case '0':
+		case ' ': {
+			if((sudoku[cur_y][cur_x] & USER_PLACED_MASK) != 0) { // number was placed by the user
+				sudoku[cur_y][cur_x] = 0;
+			}
+		} break;
 
 		case '\033': { // ESC
 			if(getchar() != '[') return;
@@ -63,17 +90,27 @@ void process_input(void) {
 	move_left: if(--cur_x < 0) cur_x = 0; return;
 }
 
+#define ANSI_RESET "\033[0m"
+#define ANSI_CYAN "\033[0;36m"
+
+void print_cell(int x, int y) {
+	uint8_t c = sudoku[y][x];
+	bool is_cursor = cur_x == x && cur_y == y;
+	printf("%c%s%c%s%c",
+		" >"[is_cursor], // if cursor is on cell, show the left cursor part
+		(sudoku[y][x] & USER_PLACED_MASK) != 0 ? ANSI_CYAN : ANSI_RESET, // if current number was placed by the user, set text color to cyan
+		c == 0 ? ' ' : (PLAIN_NUMBER_MASK & c + '0'), // print the number or space if empty
+		ANSI_RESET, // reset the text color (doesn't hurt if it was already reset before)
+		" <"[is_cursor] // if cursor is on cell, show the right cursor part
+	);
+}
+
 void print_board(void) {
 	printf("\n");
 	for(int y = 0; y < 9; ++y) {
 		for(int x = 0; x < 9; ++x) {
-			uint8_t c = sudoku[y][x];
-			bool is_cursor = cur_x == x && cur_y == y;
-			printf("%c%c%c",
-				" >"[is_cursor],
-				c == 0 ? ' ' : (c + '0'),
-				" <"[is_cursor]
-			);
+			print_cell(x, y);
+			
 			if(x == 2 || x == 5) printf("|");
 		}
 		printf("\n");
